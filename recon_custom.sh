@@ -12,10 +12,9 @@ SUB_PATH="$RESULTS_PATH/subdomain"
 CORS_PATH="$RESULTS_PATH/cors"
 IP_PATH="$RESULTS_PATH/ip"
 PSCAN_PATH="$RESULTS_PATH/portscan"
-DIR_PATH="$RESULTS_PATH/directory"
 NUCLEI_PATH="$RESULTS_PATH/nuclei"
 WAYBACK_PATH="$RESULTS_PATH/wayb"
-GATHER_PATH="$RESULTS_PATH/gather"
+GATHER_PATH="$RESULTS_PATH/js_gather"
 
 RED="\033[1;31m"
 GREEN="\033[1;32m"
@@ -54,7 +53,7 @@ setupDir(){
     echo -e "${GREEN}--==[ Setting things up ]==--${RESET}"
     echo -e "${RED}\n[+] Creating results directories...${RESET}"
     # rm -rf $RESULTS_PATH
-    mkdir -p $SUB_PATH $IP_PATH $PSCAN_PATH $DIR_PATH $NUCLEI_PATH $WAYBACK_PATH
+    mkdir -p $SUB_PATH $IP_PATH $PSCAN_PATH $NUCLEI_PATH $WAYBACK_PATH
     mkdir -p $GATHER_PATH/scripts $GATHER_PATH/scriptsresponse $GATHER_PATH/endpoints $GATHER_PATH/responsebody $GATHER_PATH/headers
     echo -e "${BLUE}[*] $RESULTS_PATH${RESET}"
     echo -e "${BLUE}[*] $TOOLS_PATH${RESET}"
@@ -62,7 +61,6 @@ setupDir(){
     echo -e "${BLUE}[*] $CORS_PATH${RESET}"
     echo -e "${BLUE}[*] $IP_PATH${RESET}"
     echo -e "${BLUE}[*] $PSCAN_PATH${RESET}"
-    echo -e "${BLUE}[*] $DIR_PATH${RESET}"
     echo -e "${BLUE}[*] $NUCLEI_PATH${RESET}"
     echo -e "${BLUE}[*] $WAYBACK_PATH${RESET}"
 }
@@ -238,22 +236,21 @@ finnal_Endpoint(){
 displayLogo
 checkArgs $TARGET
 setupDir
-# enumSubs
-# corsScan
-# enumIPs
-# portScan
-# visualRecon
-# fuzz_endpoint
-# nuclei_test
-
-# whatweb_test
-# wayb
-# jsep
+enumSubs
+corsScan
+enumIPs
+portScan
+visualRecon
+fuzz_endpoint
+nuclei_test
+wayb
+jsep
 finnal_Endpoint
 
 
 
 # -==[ Manual Run Recommend ]==-
 # smuggler_test
+# whatweb_test
 
 echo -e "${GREEN}\n--==[ DONE ]==--${RESET}"
