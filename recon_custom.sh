@@ -13,6 +13,7 @@ CORS_PATH="$RESULTS_PATH/cors"
 IP_PATH="$RESULTS_PATH/ip"
 PSCAN_PATH="$RESULTS_PATH/portscan"
 NUCLEI_PATH="$RESULTS_PATH/nuclei"
+DIR_PATH="$RESULTS_PATH/dir"
 WAYBACK_PATH="$RESULTS_PATH/wayb"
 GATHER_PATH="$RESULTS_PATH/js_gather"
 
@@ -53,7 +54,7 @@ setupDir(){
     echo -e "${GREEN}--==[ Setting things up ]==--${RESET}"
     echo -e "${RED}\n[+] Creating results directories...${RESET}"
     # rm -rf $RESULTS_PATH
-    mkdir -p $SUB_PATH $IP_PATH $PSCAN_PATH $NUCLEI_PATH $WAYBACK_PATH
+    mkdir -p $SUB_PATH $IP_PATH $PSCAN_PATH $NUCLEI_PATH $WAYBACK_PATH $DIR_PATH
     mkdir -p $GATHER_PATH/scripts $GATHER_PATH/scriptsresponse $GATHER_PATH/endpoints $GATHER_PATH/responsebody $GATHER_PATH/headers
     echo -e "${BLUE}[*] $RESULTS_PATH${RESET}"
     echo -e "${BLUE}[*] $TOOLS_PATH${RESET}"
@@ -63,6 +64,7 @@ setupDir(){
     echo -e "${BLUE}[*] $PSCAN_PATH${RESET}"
     echo -e "${BLUE}[*] $NUCLEI_PATH${RESET}"
     echo -e "${BLUE}[*] $WAYBACK_PATH${RESET}"
+    echo -e "${BLUE}[*] $DIR_PATH${RESET}"
 }
 
 
@@ -83,7 +85,6 @@ enumSubs(){
     subjack -a -ssl -t 50 -v -c ~/tools/subjack/fingerprints.json -w $SUB_PATH/final-subdomains.txt -o $SUB_PATH/final-takeover.tmp
     cat $SUB_PATH/final-takeover.tmp | grep -v "Not Vulnerable" > $SUB_PATH/final-takeover.txt
 
-    rm $SUB_PATH/final-takeover.tmp
     echo -e "${BLUE}[*] Check subjack's result at $SUB_PATH/final-takeover.txt${RESET}"
     cat $SUB_PATH/final-subdomains.txt | httpx | anew $RESULTS_PATH/alive.txt
 }
@@ -132,18 +133,28 @@ visualRecon(){
 
 
 fuzz_endpoint(){
-    for i in $(cat $RESULTS_PATH/alive.txt);do ffuf -u $i/FUZZ -w $TOOLS_PATH/dirsearch/db/dicc.txt -mc 200 -t 60 ;done| tee -a $RESULTS_PATH/ffuf_op.txt
+    echo -e "${GREEN}\n--==[ Fuzzing by ffuf ]==--${RESET}"
+    for i in $(cat $RESULTS_PATH/alive.txt); do ffuf -u $i/FUZZ -w $TOOLS_PATH/dirsearch/db/dicc.txt -mc 200 -t 60 ;done | tee -a $DIR_PATH/ffuf_op.txt
+    echo -e "${GREEN}\n--==[ Filtering fuzz ]==--${RESET}"
+    cat $DIR_PATH/ffuf_op.txt | cut -d "K" -f 2 > $RESULTS_PATH/fuff_results.txt
+    echo -e "${BLUE}[*] Check the result at $RESULTS_PATH/fuff_results.txt${RESET}"
 }
 
 nuclei_test(){
     echo -e "${GREEN}--==[ Starting Nuclei ]==--${RESET}"
-    
+    runBanner "cves"
     nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/cves/*.yaml -c 60 -o $NUCLEI_PATH/cves.txt
+    runBanner "files"
     nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/files/*.yaml -c 60 -o $NUCLEI_PATH/files.txt
+    runBanner "pannel"
     nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/panels/*.yaml -c 60 -o $NUCLEI_PATH/panels.txt
+    runBanner "security-misconfiguration"
     nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/security-misconfiguration/*.yaml -c 60 -o $NUCLEI_PATH/security-misconfiguration.txt
+    runBanner "technologies"
     nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/technologies/*.yaml -c 60 -o $NUCLEI_PATH/technologies.txt
+    runBanner "tokens"
     nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/tokens/*.yaml -c 60 -o $NUCLEI_PATH/tokens.txt
+    runBanner "vulnerabilities"
     nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/vulnerabilities/*.yaml -c 60 -o $NUCLEI_PATH/vulnerabilities.txt
     echo -e "${BLUE}[*] Check the results at $NUCLEI_PATH/${RESET}"
 }
