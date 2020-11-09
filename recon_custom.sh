@@ -1,18 +1,14 @@
 #!/bin/bash
 
-VERSION="1.3"
 
 TARGET=$1
 
-WORKING_DIR=~/recon
+WORKING_DIR=$(pwd -P)
 TOOLS_PATH=~/tools
 WORDLIST_PATH=~/mylist
-RESULTS_PATH="$WORKING_DIR/$TARGET"
+RESULTS_PATH="$WORKING_DIR"
 SUB_PATH="$RESULTS_PATH/subdomain"
-CORS_PATH="$RESULTS_PATH/cors"
 IP_PATH="$RESULTS_PATH/ip"
-PSCAN_PATH="$RESULTS_PATH/portscan"
-NUCLEI_PATH="$RESULTS_PATH/nuclei"
 DIR_PATH="$RESULTS_PATH/dir"
 WAYBACK_PATH="$RESULTS_PATH/wayb"
 GATHER_PATH="$RESULTS_PATH/js_gather"
@@ -53,28 +49,30 @@ runBanner(){
 setupDir(){
     echo -e "${GREEN}--==[ Setting things up ]==--${RESET}"
     echo -e "${RED}\n[+] Creating results directories...${RESET}"
-    # rm -rf $RESULTS_PATH
-    mkdir -p $SUB_PATH $IP_PATH $PSCAN_PATH $NUCLEI_PATH $WAYBACK_PATH $DIR_PATH
+    mkdir -p $SUB_PATH $IP_PATH $WAYBACK_PATH $DIR_PATH
     mkdir -p $GATHER_PATH/scripts $GATHER_PATH/scriptsresponse $GATHER_PATH/endpoints $GATHER_PATH/responsebody $GATHER_PATH/headers
-    echo -e "${BLUE}[*] $RESULTS_PATH${RESET}"
+
     echo -e "${BLUE}[*] $TOOLS_PATH${RESET}"
+    echo -e "${BLUE}[*] $WORDLIST_PATH${RESET}"
+    echo -e "${BLUE}[*] $RESULTS_PATH${RESET}"
     echo -e "${BLUE}[*] $SUB_PATH${RESET}"
-    echo -e "${BLUE}[*] $CORS_PATH${RESET}"
     echo -e "${BLUE}[*] $IP_PATH${RESET}"
-    echo -e "${BLUE}[*] $PSCAN_PATH${RESET}"
-    echo -e "${BLUE}[*] $NUCLEI_PATH${RESET}"
     echo -e "${BLUE}[*] $WAYBACK_PATH${RESET}"
     echo -e "${BLUE}[*] $DIR_PATH${RESET}"
+    echo -e "${BLUE}[*] $GATHER_PATH${RESET}"
 }
 
 
 enumSubs(){
     echo -e "${GREEN}\n--==[ Enumerating subdomains ]==--${RESET}"
     runBanner "Amass"
-    amass enum -d $TARGET -o $SUB_PATH/amass.txt
+    amass enum -d $TARGET -passive -o $SUB_PATH/amass.txt
 
     runBanner "subfinder"
-    subfinder -d $TARGET -t 50 -nW -o $SUB_PATH/subfinder.txt
+    subfinder -d $TARGET -nW -o $SUB_PATH/subfinder.txt
+
+    runBanner "findomain"
+    ~/findomain-linux -t $TARGET -o -o $SUB_PATH/findomain.txt
 
     echo -e "${RED}\n[+] Combining subdomains...${RESET}"
     cat $SUB_PATH/*.txt | sort | awk '{print tolower($0)}' | uniq > $SUB_PATH/final-subdomains.txt
@@ -84,18 +82,23 @@ enumSubs(){
     runBanner "subjack"
     subjack -a -ssl -t 50 -v -c ~/tools/subjack/fingerprints.json -w $SUB_PATH/final-subdomains.txt -o $SUB_PATH/final-takeover.tmp
     cat $SUB_PATH/final-takeover.tmp | grep -v "Not Vulnerable" > $SUB_PATH/final-takeover.txt
-
     echo -e "${BLUE}[*] Check subjack's result at $SUB_PATH/final-takeover.txt${RESET}"
+
+    echo -e "${GREEN}\n--==[ Checking subdomain alive ]==--${RESET}"
+    runBanner "httpx"
     cat $SUB_PATH/final-subdomains.txt | httpx | anew $RESULTS_PATH/alive.txt
+
 }
 
 
-corsScan(){
-    echo -e "${GREEN}\n--==[ Checking CORS configuration ]==--${RESET}"
-    runBanner "Corsy"
-    python3 $TOOLS_PATH/Corsy/corsy.py -i $RESULTS_PATH/alive.txt -t 50 | tee -a $RESULTS_PATH/corsy_op.txt
-    echo -e "${BLUE}[*] Check the result at $RESULTS_PATH/final-cors.txt${RESET}"
+visualRecon(){
+    echo -e "${GREEN}\n--==[ Taking screenshots ]==--${RESET}"
+    runBanner "aquatone"
+    cat $RESULTS_PATH/alive.txt | aquatone -chrome-path ~/chrome-linux/chrome -http-timeout 10000 -scan-timeout 300 -out $RESULTS_PATH/aquatone/
+    echo -e "${BLUE}[*] Check the result at $RESULTS_PATH/aquatone/aquatone_report.html${RESET}"
+    
 }
+
 
 
 enumIPs(){
@@ -124,52 +127,6 @@ portScan(){
 }
 
 
-visualRecon(){
-    echo -e "${GREEN}\n--==[ Taking screenshots ]==--${RESET}"
-    runBanner "aquatone"
-    cat $RESULTS_PATH/alive.txt | aquatone -chrome-path ~/chrome-linux/chrome -http-timeout 10000 -scan-timeout 300 -ports xlarge -out $RESULTS_PATH/aquatone/
-    echo -e "${BLUE}[*] Check the result at $RESULTS_PATH/aquatone/aquatone_report.html${RESET}"
-}
-
-
-fuzz_endpoint(){
-    echo -e "${GREEN}\n--==[ Fuzzing by ffuf ]==--${RESET}"
-    for i in $(cat $RESULTS_PATH/alive.txt); do ffuf -u $i/FUZZ -w $TOOLS_PATH/dirsearch/db/dicc.txt -mc 200 -t 60 ;done | tee -a $DIR_PATH/ffuf_op.txt
-    echo -e "${GREEN}\n--==[ Filtering fuzz ]==--${RESET}"
-    cat $DIR_PATH/ffuf_op.txt | cut -d "K" -f 2 > $RESULTS_PATH/fuff_results.txt
-    echo -e "${BLUE}[*] Check the result at $RESULTS_PATH/fuff_results.txt${RESET}"
-}
-
-nuclei_test(){
-    echo -e "${GREEN}--==[ Starting Nuclei ]==--${RESET}"
-    runBanner "cves"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/cves/*.yaml -c 60 -o $NUCLEI_PATH/cves.txt
-    runBanner "files"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/files/*.yaml -c 60 -o $NUCLEI_PATH/files.txt
-    runBanner "pannel"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/panels/*.yaml -c 60 -o $NUCLEI_PATH/panels.txt
-    runBanner "security-misconfiguration"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/security-misconfiguration/*.yaml -c 60 -o $NUCLEI_PATH/security-misconfiguration.txt
-    runBanner "technologies"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/technologies/*.yaml -c 60 -o $NUCLEI_PATH/technologies.txt
-    runBanner "tokens"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/tokens/*.yaml -c 60 -o $NUCLEI_PATH/tokens.txt
-    runBanner "vulnerabilities"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/vulnerabilities/*.yaml -c 60 -o $NUCLEI_PATH/vulnerabilities.txt
-    echo -e "${BLUE}[*] Check the results at $NUCLEI_PATH/${RESET}"
-}
-
-smuggler_test(){
-    echo -e "${GREEN}\n--==[ Looking for HTTP request smuggling ]==--${RESET}"
-    cat $RESULTS_PATH/alive.txt | python3 $TOOLS_PATH/smuggler/smuggler.py | tee -a $RESULTS_PATH/smuggler_op.txt
-}
-
-whatweb_test() {
-    echo -e "${GREEN}\n--==[ WHAT WEB ]==--${RESET}"
-    whatweb -i $RESULTS_PATH/alive.txt | tee -a $RESULTS_PATH/whatweb_op.txt
-}
-
-
 wayb() {
     echo -e "${GREEN}--==[ Starting WayBack URL ]==--${RESET}"
     for i in $(cat $RESULTS_PATH/alive.txt);do echo $i | waybackurls ;done | anew $WAYBACK_PATH/wb.txt
@@ -194,7 +151,7 @@ jsep() {
                 for x in $(cat $RESULTS_PATH/alive.txt)
         do
                 NAME=$(echo $x | awk -F/ '{print $3}')
-                curl -X GET -H "X-Forwarded-For: evil.com" $x -I > "$GATHER_PATH/headers/$NAME" 
+                curl -s -X GET -H "X-Forwarded-For: evil.com" $x -I > "$GATHER_PATH/headers/$NAME" 
                 curl -s -X GET -H "X-Forwarded-For: evil.com" -L $x > "$GATHER_PATH/responsebody/$NAME"
         done
     }
@@ -203,7 +160,7 @@ jsep() {
         echo -e "${GREEN}--==[ Gathering JS Files ]==--${RESET}"       
         for x in $(ls "$GATHER_PATH/responsebody")
         do
-            printf "${GREEN}--==[ $x ]==--${RESET}"
+            printf "${YELLOW}\n- $x ${RESET}"
             END_POINTS=$(cat "$GATHER_PATH/responsebody/$x" | grep -Eoi "src=\"[^>]+></script>" | cut -d '"' -f 2)
             for end_point in $END_POINTS
             do
@@ -215,14 +172,14 @@ jsep() {
                             URL="https://$x$end_point"
                     fi
                     file=$(basename $end_point)
-                    curl -X GET $URL -L > "$GATHER_PATH/scriptsresponse/$x/$file"
+                    curl -s -X GET $URL -L > "$GATHER_PATH/scriptsresponse/$x/$file"
                     echo $URL >> "$GATHER_PATH/scripts/$x"
             done
         done
     }
 
     endpoints() {
-        echo -e "${GREEN}--==[ Gathering Endpoints ]==--${RESET}"
+        echo -e "${GREEN}\n--==[ Gathering Endpoints ]==--${RESET}"
         for domain in $(ls $GATHER_PATH/scriptsresponse)
         do
             #looping through files in each domain
@@ -240,28 +197,33 @@ endpoints
 }
 
 finnal_Endpoint(){
+    echo -e "${GREEN}--==[ Combining Endpoints ]==--${RESET}"
     cat $GATHER_PATH/endpoints/*/* | sort -u | anew  $RESULTS_PATH/endpoints.txt
+}
+
+fuzz_endpoint(){
+    echo -e "${GREEN}\n--==[ Fuzzing by ffuf ]==--${RESET}"
+    for i in $(cat $RESULTS_PATH/alive.txt); do ffuf -u $i/FUZZ -w $WORDLIST_PATH/custom_words.txt -mc 200 -t 60 ;done | tee -a $DIR_PATH/ffuf_op.txt
+    echo -e "${GREEN}\n--==[ Filtering fuzz ]==--${RESET}"
+    cat $DIR_PATH/ffuf_op.txt | cut -d "K" -f 2 > $RESULTS_PATH/fuff_results.txt
+    echo -e "${BLUE}[*] Check the result at $RESULTS_PATH/fuff_results.txt${RESET}"
 }
 
 # Main function
 displayLogo
 checkArgs $TARGET
 setupDir
+
 enumSubs
-corsScan
 enumIPs
-portScan
 visualRecon
-fuzz_endpoint
 nuclei_test
 wayb
+
 jsep
 finnal_Endpoint
 
+# fuzz_endpoint
 
-
-# -==[ Manual Run Recommend ]==-
-# smuggler_test
-# whatweb_test
 
 echo -e "${GREEN}\n--==[ DONE ]==--${RESET}"
