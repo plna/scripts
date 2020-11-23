@@ -3,6 +3,12 @@
 
 TARGET=$1
 
+WORKING_DIR=$(pwd -P)
+TOOLS_PATH=~/tools
+WORDLIST_PATH=~/mylist
+RESULTS_PATH="$WORKING_DIR"
+NUCLEI_PATH="$RESULTS_PATH/nuclei"
+
 RED="\033[1;31m"
 GREEN="\033[1;32m"
 BLUE="\033[1;36m"
@@ -16,6 +22,8 @@ checkArgs(){
     fi
 }
 
+mkdir -p $NUCLEI_PATH
+echo -e "${BLUE}[*] $NUCLEI_PATH${RESET}"
 
 runBanner(){
     name=$1
@@ -25,17 +33,33 @@ runBanner(){
 
 echo -e "${GREEN}--==[ Starting Nuclei ]==--${RESET}"
 runBanner "cves"
-nuclei -l $1 -silent -t ~/nuclei-templates/cves/*.yaml -o nuclei_results/cves.txt
-runBanner "files"
-nuclei -l $1 -silent -t ~/nuclei-templates/files/*.yaml -o nuclei_results/files.txt
-runBanner "pannel"
-nuclei -l $1 -silent -t ~/nuclei-templates/panels/*.yaml -o nuclei_results/panels.txt
+nuclei -l $1 -t ~/nuclei-templates/cves/ -o $NUCLEI_PATH/cves.txt -pbar -silent
+
+
 runBanner "security-misconfiguration"
-nuclei -l $1 -silent -t ~/nuclei-templates/security-misconfiguration/*.yaml -o nuclei_results/security-misconfiguration.txt
+nuclei -l $1 -t ~/nuclei-templates/security-misconfiguration/ -o $NUCLEI_PATH/security-misconfiguration.txt -pbar -silent
+
+runBanner "files"
+nuclei -l $1 -t ~/nuclei-templates/files/ -o $NUCLEI_PATH/files.txt -pbar -silent
+
+runBanner "pannel"
+nuclei -l $1 -t ~/nuclei-templates/panels/ -o $NUCLEI_PATH/panels.txt -pbar -silent
+
 runBanner "technologies"
-nuclei -l $1 -silent -t ~/nuclei-templates/technologies/*.yaml -o nuclei_results/technologies.txt
+nuclei -l $1 -t ~/nuclei-templates/technologies/ -o $NUCLEI_PATH/technologies.txt -pbar -silent
+
 runBanner "tokens"
-nuclei -l $1 -silent -t ~/nuclei-templates/tokens/*.yaml -o nuclei_results/tokens.txt
+nuclei -l $1 -t ~/nuclei-templates/tokens/ -o $NUCLEI_PATH/tokens.txt -pbar -silent
+
 runBanner "vulnerabilities"
-nuclei -l $1 -silent -t ~/nuclei-templates/vulnerabilities/*.yaml -o nuclei_results/vulnerabilities.txt
-echo -e "${BLUE}[*] DONE ${RESET}"
+nuclei -l $1 -t ~/nuclei-templates/vulnerabilities/ -o $NUCLEI_PATH/vulnerabilities.txt -pbar -silent
+
+runBanner "subdomain-takeover"
+nuclei -l $1 -t ~/nuclei-templates/subdomain-takeover/ -o $NUCLEI_PATH/subdomain-takeover.txt -pbar -silent
+
+runBanner "subdomain-takeover"
+nuclei -l $1 -t ~/nuclei-templates/subdomain-takeover/ -o $NUCLEI_PATH/subdomain-takeover.txt -pbar -silent
+
+
+
+echo -e "${BLUE}[*] DONE! Check results at $NUCLEI_PATH${RESET}"

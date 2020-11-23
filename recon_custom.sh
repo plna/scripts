@@ -12,6 +12,9 @@ IP_PATH="$RESULTS_PATH/ip"
 DIR_PATH="$RESULTS_PATH/dir"
 WAYBACK_PATH="$RESULTS_PATH/wayb"
 GATHER_PATH="$RESULTS_PATH/js_gather"
+NUCLEI_PATH="$RESULTS_PATH/nuclei"
+
+
 
 RED="\033[1;31m"
 GREEN="\033[1;32m"
@@ -49,7 +52,7 @@ runBanner(){
 setupDir(){
     echo -e "${GREEN}--==[ Setting things up ]==--${RESET}"
     echo -e "${RED}\n[+] Creating results directories...${RESET}"
-    mkdir -p $SUB_PATH $IP_PATH $WAYBACK_PATH $DIR_PATH
+    mkdir -p $SUB_PATH $IP_PATH $WAYBACK_PATH $NUCLEI_PATH
     mkdir -p $GATHER_PATH/scripts $GATHER_PATH/scriptsresponse $GATHER_PATH/endpoints $GATHER_PATH/responsebody $GATHER_PATH/headers
 
     echo -e "${BLUE}[*] $TOOLS_PATH${RESET}"
@@ -58,8 +61,9 @@ setupDir(){
     echo -e "${BLUE}[*] $SUB_PATH${RESET}"
     echo -e "${BLUE}[*] $IP_PATH${RESET}"
     echo -e "${BLUE}[*] $WAYBACK_PATH${RESET}"
-    echo -e "${BLUE}[*] $DIR_PATH${RESET}"
+    # echo -e "${BLUE}[*] $DIR_PATH${RESET}"
     echo -e "${BLUE}[*] $GATHER_PATH${RESET}"
+    echo -e "${BLUE}[*] $NUCLEI_PATH${RESET}"
 }
 
 
@@ -72,17 +76,14 @@ enumSubs(){
     subfinder -d $TARGET -nW -o $SUB_PATH/subfinder.txt
 
     runBanner "findomain"
-    ~/findomain-linux -t $TARGET -o -o $SUB_PATH/findomain.txt
+    ~/findomain-linux -t $TARGET -o $SUB_PATH/findomain.txt
+
+    runBanner "crt.sh"
+    curl -s "https://crt.sh/?q=%.$TARGET&output=json"  | jq -r '.[].name_value' | sed 's/\*\.//g' | grep $TARGET | sort -u | anew $SUB_PATH/crtsh.txt
 
     echo -e "${RED}\n[+] Combining subdomains...${RESET}"
     cat $SUB_PATH/*.txt | sort | awk '{print tolower($0)}' | uniq > $SUB_PATH/final-subdomains.txt
     echo -e "${BLUE}[*] Check the list of subdomains at $SUB_PATH/final-subdomains.txt${RESET}"
-
-    echo -e "${GREEN}\n--==[ Checking for subdomain takeovers ]==--${RESET}"
-    runBanner "subjack"
-    subjack -a -ssl -t 50 -v -c ~/tools/subjack/fingerprints.json -w $SUB_PATH/final-subdomains.txt -o $SUB_PATH/final-takeover.tmp
-    cat $SUB_PATH/final-takeover.tmp | grep -v "Not Vulnerable" > $SUB_PATH/final-takeover.txt
-    echo -e "${BLUE}[*] Check subjack's result at $SUB_PATH/final-takeover.txt${RESET}"
 
     echo -e "${GREEN}\n--==[ Checking subdomain alive ]==--${RESET}"
     runBanner "httpx"
@@ -94,7 +95,7 @@ enumSubs(){
 visualRecon(){
     echo -e "${GREEN}\n--==[ Taking screenshots ]==--${RESET}"
     runBanner "aquatone"
-    cat $RESULTS_PATH/alive.txt | aquatone -chrome-path ~/chrome-linux/chrome -http-timeout 10000 -scan-timeout 300 -out $RESULTS_PATH/aquatone/
+    cat $RESULTS_PATH/alive.txt | aquatone -chrome-path ~/chrome-linux/chrome -out $RESULTS_PATH/aquatone/
     echo -e "${BLUE}[*] Check the result at $RESULTS_PATH/aquatone/aquatone_report.html${RESET}"
     
 }
@@ -110,6 +111,13 @@ enumIPs(){
     echo -e "${BLUE}[*] Check the list of IP addresses at $IP_PATH/final-ips.txt${RESET}"
 }
 
+domainTakeOver(){
+    echo -e "${GREEN}\n--==[ Checking for subdomain takeovers ]==--${RESET}"
+    runBanner "subjack"
+    subjack -a -ssl -t 50 -v -c ~/tools/subjack/fingerprints.json -w $SUB_PATH/final-subdomains.txt -o $SUB_PATH/final-takeover.tmp
+    cat $SUB_PATH/final-takeover.tmp | grep -v "Not Vulnerable" > $SUB_PATH/final-takeover.txt
+    echo -e "${BLUE}[*] Check subjack's result at $SUB_PATH/final-takeover.txt${RESET}"
+}
 
 portScan(){
     echo -e "${GREEN}\n--==[ Port-scanning targets ]==--${RESET}"
@@ -172,7 +180,7 @@ jsep() {
                             URL="https://$x$end_point"
                     fi
                     file=$(basename $end_point)
-                    curl -s -X GET $URL -L > "$GATHER_PATH/scriptsresponse/$x/$file"
+                    curl -s -X GET $URL -L  > "$GATHER_PATH/scriptsresponse/$x/$file"
                     echo $URL >> "$GATHER_PATH/scripts/$x"
             done
         done
@@ -209,20 +217,41 @@ fuzz_endpoint(){
     echo -e "${BLUE}[*] Check the result at $RESULTS_PATH/fuff_results.txt${RESET}"
 }
 
+nuclei_test(){
+    echo -e "${GREEN}--==[ Starting Nuclei ]==--${RESET}"
+    runBanner "cves"
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/cves/ -o $NUCLEI_PATH/cves.txt -pbar -silent
+    runBanner "pannel"
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/panels/ -o $NUCLEI_PATH/panels.txt -pbar -silent
+    runBanner "security-misconfiguration"
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/security-misconfiguration/ -o $NUCLEI_PATH/security-misconfiguration.txt -pbar -silent
+    runBanner "technologies"
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/technologies/ -o $NUCLEI_PATH/technologies.txt -pbar -silent
+    runBanner "tokens"
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/tokens/ -o $NUCLEI_PATH/tokens.txt -pbar -silent
+    runBanner "vulnerabilities"
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/vulnerabilities/ -o $NUCLEI_PATH/vulnerabilities.txt -pbar -silent
+    runBanner "subdomain-takeover"
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/subdomain-takeover/ -o $NUCLEI_PATH/subdomain-takeover.txt -pbar -silent
+    echo -e "${BLUE}[*] Check the result at $NUCLEI_PATH/ ${RESET}"
+}
+
+
 # Main function
 displayLogo
 checkArgs $TARGET
 setupDir
 
 enumSubs
-enumIPs
 visualRecon
-nuclei_test
+enumIPs
+domainTakeOver
 wayb
 
 jsep
 finnal_Endpoint
 
+nuclei_test
 # fuzz_endpoint
 
 

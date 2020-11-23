@@ -3,7 +3,7 @@
 echo ""
 echo "************ Github Dork Links (must be logged in) *******************"
 echo ""
-echo "  password"
+echo " password"
 echo "https://github.com/search?q=%22$1%22+password&type=Code"
 echo "https://github.com/search?q=%22$without_suffix%22+password&type=Code"
 echo ""
