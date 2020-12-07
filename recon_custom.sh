@@ -87,7 +87,7 @@ enumSubs(){
 
     echo -e "${GREEN}\n--==[ Checking subdomain alive ]==--${RESET}"
     runBanner "httpx"
-    cat $SUB_PATH/final-subdomains.txt | httpx | anew $RESULTS_PATH/alive.txt
+    cat $SUB_PATH/final-subdomains.txt | httpx | sort -u > $RESULTS_PATH/alive.txt
 
 }
 
@@ -100,7 +100,13 @@ visualRecon(){
     
 }
 
-
+screenshot(){
+    echo -e "${GREEN}\n--==[ Taking screenshots ]==--${RESET}"
+    runBanner "webscreenshot"
+    $TOOLS_PATH/webscreenshot/webscreenshot.py -i $RESULTS_PATH/alive.txt -o $RESULTS_PATH/screenshots
+    echo -e "${BLUE}[*] Check the result at $RESULTS_PATH/sreenshot/aquatone_report.html${RESET}"
+    
+}
 
 enumIPs(){
     echo -e "${GREEN}\n--==[ Resolving IP addresses ]==--${RESET}"
@@ -141,15 +147,17 @@ wayb() {
     runBanner "paramlist"
     cat $WAYBACK_PATH/wb.txt  | sort -u | unfurl --unique keys | anew $WAYBACK_PATH/paramlist.txt
     runBanner "js urls"
-    cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.js(\?|$)" | sort -u | anew $WAYBACK_PATH/jsurls.txt
+    cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.js(\?|$)" | sort -u > $WAYBACK_PATH/jsurls.txt
     runBanner "php urls"
-    cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.php(\?|$)" | sort -u  | anew $WAYBACK_PATH/phpurls.txt
+    cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.php(\?|$)" | sort -u > $WAYBACK_PATH/phpurls.txt
     runBanner "asp url"
-    cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.aspx(\?|$)" | sort -u  | anew $WAYBACK_PATH/aspxurls.txt
+    cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.aspx(\?|$)" | sort -u > $WAYBACK_PATH/aspxurls.txt
     runBanner "jsp url"
-    cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.jsp(\?|$)" | sort -u | anew $WAYBACK_PATH/jspurls.txt
+    cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.jsp(\?|$)" | sort -u > $WAYBACK_PATH/jspurls.txt
     runBanner "robots"
-    cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.txt(\?|$)" | sort -u  | anew $WAYBACK_PATH/robots.txt
+    cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.txt(\?|$)" | sort -u > $WAYBACK_PATH/robots.txt
+    runBanner "open redirect"
+    cat $WAYBACK_PATH/wb.txt  | gf redirect | qsreplace "http://localhost" | sort -u > $WAYBACK_PATH/oredirect.txt
 }
 
 
@@ -162,6 +170,8 @@ jsep() {
                 curl -s -X GET -H "X-Forwarded-For: evil.com" $x -I > "$GATHER_PATH/headers/$NAME" 
                 curl -s -X GET -H "X-Forwarded-For: evil.com" -L $x > "$GATHER_PATH/responsebody/$NAME"
         done
+        echo -e "${GREEN}--==[ Checking evil.com ]==--${RESET}"
+        grep -ine 'evil\.com' $GATHER_PATH/headers/* | tee $RESULTS_PATH/evil.txt
     }
 
     jsfinder(){
@@ -237,20 +247,36 @@ nuclei_test(){
 }
 
 
+cors_scan(){
+    echo -e "${GREEN}--==[ CORS.... ]==--${RESET}"
+    $TOOLS_PATH/Corsy/corsy.py -i $RESULTS_PATH/alive.txt -o $RESULTS_PATH/cors.txt
+}
+
+
+open_redirect(){
+    echo -e "${GREEN}--==[ OPEN REDIRECT ]==--${RESET}"
+    cat $WAYBACK_PATH/oredirect.txt | xargs -I @ -P 25 sh -c 'curl -Is "@" 2>&1 | grep -q "Location: http://localhost" && tee -a $RESULTS_PATH/open_redirect.txt'
+    
+}
+
+
 # Main function
 displayLogo
 checkArgs $TARGET
 setupDir
 
 enumSubs
-visualRecon
+# visualRecon
+screenshot
 enumIPs
 domainTakeOver
+cors_scan
+
 wayb
 
 jsep
 finnal_Endpoint
-
+open_redirect
 nuclei_test
 # fuzz_endpoint
 
