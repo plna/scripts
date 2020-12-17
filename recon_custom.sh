@@ -12,7 +12,7 @@ IP_PATH="$RESULTS_PATH/ip"
 DIR_PATH="$RESULTS_PATH/dir"
 WAYBACK_PATH="$RESULTS_PATH/wayb"
 GATHER_PATH="$RESULTS_PATH/js_gather"
-NUCLEI_PATH="$RESULTS_PATH/nuclei"
+
 
 
 
@@ -52,7 +52,7 @@ runBanner(){
 setupDir(){
     echo -e "${GREEN}--==[ Setting things up ]==--${RESET}"
     echo -e "${RED}\n[+] Creating results directories...${RESET}"
-    mkdir -p $SUB_PATH $IP_PATH $WAYBACK_PATH $NUCLEI_PATH
+    mkdir -p $SUB_PATH $IP_PATH $WAYBACK_PATH
     mkdir -p $GATHER_PATH/scripts $GATHER_PATH/scriptsresponse $GATHER_PATH/endpoints $GATHER_PATH/responsebody $GATHER_PATH/headers
 
     echo -e "${BLUE}[*] $TOOLS_PATH${RESET}"
@@ -61,9 +61,7 @@ setupDir(){
     echo -e "${BLUE}[*] $SUB_PATH${RESET}"
     echo -e "${BLUE}[*] $IP_PATH${RESET}"
     echo -e "${BLUE}[*] $WAYBACK_PATH${RESET}"
-    # echo -e "${BLUE}[*] $DIR_PATH${RESET}"
     echo -e "${BLUE}[*] $GATHER_PATH${RESET}"
-    echo -e "${BLUE}[*] $NUCLEI_PATH${RESET}"
 }
 
 
@@ -103,7 +101,7 @@ visualRecon(){
 screenshot(){
     echo -e "${GREEN}\n--==[ Taking screenshots ]==--${RESET}"
     runBanner "webscreenshot"
-    $TOOLS_PATH/webscreenshot/webscreenshot.py -i $RESULTS_PATH/alive.txt -o $RESULTS_PATH/screenshots
+    $TOOLS_PATH/webscreenshot/webscreenshot.py -i $RESULTS_PATH/alive.txt -o $RESULTS_PATH/screenshots -t 2000
     echo -e "${BLUE}[*] Check the result at $RESULTS_PATH/sreenshot/aquatone_report.html${RESET}"
     
 }
@@ -230,20 +228,20 @@ fuzz_endpoint(){
 nuclei_test(){
     echo -e "${GREEN}--==[ Starting Nuclei ]==--${RESET}"
     runBanner "cves"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/cves/ -o $NUCLEI_PATH/cves.txt -pbar -silent
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/cves/ -o $RESULTS_PATH/cves.txt  -stats -silent
     runBanner "pannel"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/panels/ -o $NUCLEI_PATH/panels.txt -pbar -silent
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/panels/ -o $RESULTS_PATH/panels.txt  -stats -silent
     runBanner "security-misconfiguration"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/security-misconfiguration/ -o $NUCLEI_PATH/security-misconfiguration.txt -pbar -silent
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/security-misconfiguration/ -o $RESULTS_PATH/security-misconfiguration.txt  -stats -silent
     runBanner "technologies"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/technologies/ -o $NUCLEI_PATH/technologies.txt -pbar -silent
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/technologies/ -o $RESULTS_PATH/technologies.txt  -stats -silent
     runBanner "tokens"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/tokens/ -o $NUCLEI_PATH/tokens.txt -pbar -silent
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/tokens/ -o $RESULTS_PATH/tokens.txt  -stats -silent
     runBanner "vulnerabilities"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/vulnerabilities/ -o $NUCLEI_PATH/vulnerabilities.txt -pbar -silent
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/vulnerabilities/ -o $RESULTS_PATH/vulnerabilities.txt  -stats -silent
     runBanner "subdomain-takeover"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/subdomain-takeover/ -o $NUCLEI_PATH/subdomain-takeover.txt -pbar -silent
-    echo -e "${BLUE}[*] Check the result at $NUCLEI_PATH/ ${RESET}"
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/subdomain-takeover/ -o $RESULTS_PATH/subdomain-takeover.txt  -stats -silent
+    echo -e "${BLUE}[*] Check the result at $RESULTS_PATH/ ${RESET}"
 }
 
 
