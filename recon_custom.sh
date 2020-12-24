@@ -74,7 +74,7 @@ enumSubs(){
     subfinder -d $TARGET -nW -o $SUB_PATH/subfinder.txt
 
     runBanner "findomain"
-    ~/findomain-linux -t $TARGET -o $SUB_PATH/findomain.txt
+    findomain-linux -t $TARGET -o $SUB_PATH/findomain.txt
 
     runBanner "crt.sh"
     curl -s "https://crt.sh/?q=%.$TARGET&output=json"  | jq -r '.[].name_value' | sed 's/\*\.//g' | grep $TARGET | sort -u | anew $SUB_PATH/crtsh.txt

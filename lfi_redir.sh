@@ -63,6 +63,6 @@ openRedirect(){
 	echo -e "${BLUE}[*] Check the result at $WORKING_DIR/redirect_result.txt${RESET}"
 }
 
-# lfi
-lfi_Fuzz2
-# openRedirect
+lfi
+# lfi_Fuzz2
+openRedirect
