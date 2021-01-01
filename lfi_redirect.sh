@@ -30,17 +30,18 @@ lfi (){
 
 lfi_Fuzz(){
 	runBanner "CHEAKING FOR LFI"
+	cat $TARGET | gf lfi | qsreplace FUZZ | anew lfi.txt
+	
+	for i in $(cat lfi.txt); do ffuf -w ~/mylist/find_lfi.txt -u "$i"  -c=true -sa=true  -sf=true -se=true -mc=302  -v 2>/dev/null ; done
 
-	cat $TARGET | gf lfi | qsreplace "FUZZ" |\
-	xargs -I % -P 15 sh -c 'ffuf -w ~/mylist/lfi_list.txt -u "$i"  -c=true -sa=true  -sf=true -se=true -mc=302  -v 2>/dev/null'
-
+	
 	echo -e "${BLUE}[*] Check the result at $WORKING_DIR/${RESET}"
 }
 
 
 n=0
 lfi_Fuzz2 (){
-	for i in $( cat ~/mylist/lfi_list.txt ); do \
+	for i in $( cat ~/mylist/find_lfi.txt ); do \
 		(
 			n=$((n+1))
 			runBanner "CHEAKING FOR LFI"

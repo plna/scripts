@@ -16,11 +16,20 @@ GATHER_PATH="$RESULTS_PATH/js_gather"
 
 
 
-RED="\033[1;31m"
-GREEN="\033[1;32m"
-BLUE="\033[1;36m"
-YELLOW="\033[1;33m"
+RED="\033[31m"
+GREEN="\033[32m"
+BLUE="\033[36m"
+YELLOW="\033[33m"
 RESET="\033[0m"
+
+checkArgs(){
+    if [[ $# -eq 0 ]]; then
+        echo -e "${RED}[+]${BLUE} Please give a domain like ${RED}\"domain.com\"\n${RESET}"
+        echo -e "${RED}[+]${BLUE} $0 ${RED}<domain>${RESET}\n"
+        exit 1
+    fi
+}
+
 
 displayLogo(){
 echo -e "${YELLOW}
@@ -35,12 +44,6 @@ ${RED}Custom${RESET} by ${YELLOW}@k1llheal${RESET}
 }
 
 
-checkArgs(){
-    if [[ $# -eq 0 ]]; then
-        echo -e "${RED}[+] Usage:${RESET} $0 <domain>\n"
-        exit 1
-    fi
-}
 
 
 runBanner(){
@@ -154,8 +157,22 @@ wayb() {
     cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.jsp(\?|$)" | sort -u > $WAYBACK_PATH/jspurls.txt
     runBanner "robots"
     cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.txt(\?|$)" | sort -u > $WAYBACK_PATH/robots.txt
-    runBanner "open redirect"
-    cat $WAYBACK_PATH/wb.txt  | gf redirect | qsreplace "http://localhost" | sort -u > $WAYBACK_PATH/oredirect.txt
+    runBanner "xss"
+    cat $WAYBACK_PATH/wb.txt  | gf xss | sort -u | anew $WAYBACK_PATH/xss.txt
+    runBanner "sqli"
+    cat $WAYBACK_PATH/wb.txt  | gf sqli | sort -u | anew $WAYBACK_PATH/sqli.txt
+    runBanner "redirect"
+    cat $WAYBACK_PATH/wb.txt  | gf redirect | sort -u | anew $WAYBACK_PATH/redirect.txt
+    runBanner "rce"
+    cat $WAYBACK_PATH/wb.txt  | gf rce | sort -u | anew $WAYBACK_PATH/rce.txt
+    runBanner "ssrf"
+    cat $WAYBACK_PATH/wb.txt  | gf ssrf | sort -u | anew $WAYBACK_PATH/ssrf.txt
+    runBanner "s3-buckets"
+    cat $WAYBACK_PATH/wb.txt  | gf s3-buckets | sort -u | anew $WAYBACK_PATH/s3-buckets.txt
+    # runBanner "ssti"
+    # cat $WAYBACK_PATH/wb.txt  | gf ssti | sort -u | anew $WAYBACK_PATH/ssti.txt
+    runBanner "lfi"
+    cat $WAYBACK_PATH/wb.txt  | gf lfi | sort -u | anew $WAYBACK_PATH/lfi.txt   
 }
 
 

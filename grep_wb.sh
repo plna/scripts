@@ -1,23 +1,46 @@
 #!/bin/bash
 
-cat wb.txt  | sort -u | unfurl --unique keys | anew paramlist.txt
+RED="\e[31m"
+GREEN="\e[32m"
+YELLOW="\e[33m"
+BLUE="\e[36m"
+RESET="\e[0m"
 
-cat wb.txt  | grep -P "\w+\.js(\?|$)" | sort -u | anew jsurls.txt
+checkArgs(){
+	if [[ $# -eq 0 ]]; then
+		echo -e "${BLUE}Please give a fife like ${RED}\"wb.txt\"${RESET}"
+		echo -e "${BLUE}$0 ${RED}wb.txt${RESET}"
+		exit 1
+	fi
+}
 
-cat wb.txt  | grep -P "\w+\.php(\?|$)" | sort -u | anew phpurls.txt
+checkArgs $1
 
-cat wb.txt  | grep -P "\w+\.aspx(\?|$)" | sort -u | anew aspxurls.txt
+cat $1  | sort -u | unfurl --unique keys | anew paramlist.txt
 
-cat wb.txt  | grep -P "\w+\.jsp(\?|$)" | sort -u | anew jspurls.txt
+cat $1  | grep -P "\w+\.js(\?|$)" | sort -u | anew js.txt
 
-cat wb.txt  | grep -P "\w+\.txt(\?|$)" | sort -u | anew robots.txt
+cat $1  | grep -P "\w+\.php(\?|$)" | sort -u | anew php.txt
 
-cat wb.txt  | gf xss | sort -u | anew kxss.txt
+cat $1  | grep -P "\w+\.aspx(\?|$)" | sort -u | anew aspx.txt
 
-cat wb.txt  | gf sqli | sort -u | anew sqli.txt
+cat $1  | grep -P "\w+\.jsp(\?|$)" | sort -u | anew jsp.txt
 
-# cat wb.txt  | gf redirect | sort -u | anew redirect.txt
+cat $1  | grep -P "\w+\.txt(\?|$)" | sort -u | anew robots.txt
 
-# cat wb.txt  | gf lfi | sort -u | anew lfi.txt
+cat $1  | gf xss | sort -u | anew xss.txt
 
-# cat wb.txt  | gf lfi | sort -u | qsreplace FUZZ  | anew lfi_fuzz.txt
+cat $1  | gf sqli | sort -u | anew sqli.txt
+
+cat $1  | gf redirect | sort -u | anew redirect.txt
+
+cat $1  | gf rce | sort -u | anew rce.txt
+
+cat $1  | gf ssrf | sort -u | anew ssrf.txt
+
+cat $1  | gf s3-buckets | sort -u | anew s3-buckets.txt
+
+# cat $1  | gf ssti | sort -u | anew ssti.txt
+
+cat $1  | gf lfi | sort -u | anew lfi.txt
+
