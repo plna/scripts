@@ -12,11 +12,11 @@ CYAN="\e[36m"
 RESET="\e[0m"
 
 
-echo -e ${YELLOW}'
+echo -e ${CYAN}'
            __      __        __        ___ ___     ___         __   ___  __  
  /\  |  | /__`    |__) |  | /  ` |__/ |__   |     |__  | |\ | |  \ |__  |__) 
 /~~\ |/\| .__/    |__) \__/ \__, |  \ |___  |     |    | | \| |__/ |___ |  \ 
-
+	    						\u001b[33m Coded by k1llheal
 '${RESET}
 
 
@@ -28,7 +28,7 @@ fi
 
 case $OPT in
 	-d)
-		# subfinder -d $1 | httpx | sort -u | tee sub_aws
+		# subfinder -d $ARG | httpx | sort -u | tee sub_aws
 		curl -s "https://crt.sh/?q=%.$ARG&output=json"  | jq -r '.[].name_value' |\
 		 sed 's/\*\.//g' | grep $ARG | httpx | sort -u |\
 		  sed -E 's/https?\:\/\///g' | tee sub_aws
@@ -36,14 +36,14 @@ case $OPT in
 		echo -e "\n\033[34mBucket Finding...\033[0m"
 		echo
 		for i in $( cat sub_aws ); do curl -s "$i.s3.amazonaws.com" && echo $i |\
-		 echo -e "\n\033[31m└─> $i.s3.amazonaws.com\033[36m" &&
-		 dig "$i.s3.amazonaws.com" && echo -e "\e[0m"; done
+		 echo -e "\n\033[31m└─> http://$i.s3.amazonaws.com\033[36m" &&
+		 dig "$i" && echo -e "\e[0m"; done
 	;;
 	-f)
 		for i in $( cat $ARG ); do echo $i | sed -E 's/https?\:\/\///g' |\
 		xargs -I @ sh -c 'curl -s "@.s3.amazonaws.com" && echo @ |\
-		 echo -e "\n\033[31m└─> @.s3.amazonaws.com\033[36m" &&
-		 dig "@.s3.amazonaws.com" && echo "\e[0m" '; done
+		 echo -e "\n\033[31m└─> http://@.s3.amazonaws.com\033[36m" &&
+		 dig "@" && echo "\e[0m" '; done
 	;;
 	*)
 		echo "usage: aws_bucket_find.py [-h] [-d DOMAIN] [-f FILE]"

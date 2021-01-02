@@ -1,9 +1,13 @@
-import os
+#!/usr/bin/python3
+
+import os, signal
 import argparse
 import time
-import socket
 import dns.resolver
-from subprocess import Popen
+import re
+import subprocess
+import requests
+from dns.resolver import dns
 
 start_time = time.time()
 
@@ -16,18 +20,16 @@ CYAN="\u001b[36m"
 RESET="\u001b[0m"
 
 
-# my_resolver = dns.resolver.Resolver()
-# my_resolver.nameservers = ['8.8.8.8']
-# answer=my_resolver.query("status.figma.com.s3.amazonaws.com", "CNAME")
+name_server = '8.8.8.8'
+ADDITIONAL_RDCLASS = 65535
+
 
 def main():
-    banner = f"""{YELLOW}
-
-   ___ _      ______  ___           __       __    _____         __       
-  / _ | | /| / / __/ / _ )__ ______/ /_____ / /_  / __(_)__  ___/ /__ ____
- / __ | |/ |/ /\ \  / _  / // / __/  '_/ -_) __/ / _// / _ \/ _  / -_) __/
-/_/ |_|__/|__/___/ /____/\_,_/\__/_/\_\\\__/\__/ /_/ /_/_//_/\_,_/\__/_/   
-                                                                          
+    banner = f"""{CYAN}
+           __      __        __        ___ ___     ___         __   ___  __  
+ /\  |  | /__`    |__) |  | /  ` |__/ |__   |     |__  | |\ | |  \ |__  |__) 
+/~~\ |/\| .__/    |__) \__/ \__, |  \ |___  |     |    | | \| |__/ |___ |  \ 
+                                                    {YELLOW}Coded by k1llheal                                                                       
     {RESET}"""
 
     print(banner)
@@ -41,28 +43,69 @@ def main():
     if not any(vars(parser.parse_args()).values()):
         parser.error(f"""{RED}No arguments provided.{RESET}""")
     
-    var1 = args.domain
+    var_domain = args.domain
+    var_file = args.file
 
-    # Basic query
-    # for data in answer:
-    #     print(data.target)
+    if args.domain:
+        print(f"{BLUE}[+] Enumerating sub......{RESET}")
+        sub = ("assetfinder -subs-only {0} | httpx -silent".format(var_domain))
+ 
+        content = []
+        result = subprocess.check_output(sub, shell=True, encoding='utf-8')
+        for i in result.splitlines():
+            content.append(i)
+            print(i)
+        
+        content = [x.strip() for x in content]
+        content = [re.sub('https?://', '', x) for x in content]
 
-    crtsh = """curl -s "https://crt.sh/?q=%.{}&output=json"  | jq -r '.[].name_value' |\
-                sed 's/\*\.//g' | grep {} | httpx | sort -u |\
-                sed -E 's/https?\:\/\///g' | tee sub_aws"""
-    
-    # crtsh = """ echo "{}" | httpx """
+        print()
+        print(f"{BLUE}[+] Finding bucket......{RESET}")
+        for i in content:
+            response = requests.get("http://"+i+".s3.amazonaws.com")
+            print(response.text)
+            print(f"{RED}http://"+i+".s3.amazonaws.com"+f"{CYAN}")
 
-    findBucket = """for i in $( cat sub_aws ); do curl -s "$i.s3.amazonaws.com" && echo $i |\
-                    echo -e "\n\033[31m└─> $i.s3.amazonaws.com\033[36m" &&
-                    dig "$i.s3.amazonaws.com" && echo "\e[0m"; done"""
-    
-    os.system(crtsh.format(str(var1), str(var1)))
-    os.system(findBucket)
+            request = dns.message.make_query(i, dns.rdatatype.ANY)
+            request.flags |= dns.flags.AD
+            request.find_rrset(request.additional, dns.name.root, ADDITIONAL_RDCLASS,
+                       dns.rdatatype.OPT, create=True, force_unique=True)   
+            response = dns.query.udp(request, name_server)
 
+            for i in (response.answer):
+                print(i)
+           
+            print(f"{RESET}")
 
+    elif args.file:
+        with open(var_file, 'r') as f:
+            content = f.readlines()
+        
+        content = [x.strip() for x in content]
+        content = [re.sub('https?://', '', x) for x in content]
 
-    # print(crtsh.format(str(var1)))
+        for i in content:
+            response = requests.get("http://"+i+".s3.amazonaws.com")
+            print(response.text)
+            print(f"{RED}http://"+i+".s3.amazonaws.com"+f"{CYAN}")
+
+            request = dns.message.make_query(i, dns.rdatatype.ANY)
+            request.flags |= dns.flags.AD
+            request.find_rrset(request.additional, dns.name.root, ADDITIONAL_RDCLASS,
+                       dns.rdatatype.OPT, create=True, force_unique=True)   
+            response = dns.query.udp(request, name_server)
+
+            for i in (response.answer):
+                print(i)
+           
+            print(f"{RESET}")
+
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+        print("--- %s seconds ---" % (time.time() - start_time))
+    except KeyboardInterrupt:
+        print("--- %s seconds ---" % (time.time() - start_time))
+        print(f"{RED}>>>>>> STOP.........................")
+        exit(0)
