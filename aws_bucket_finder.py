@@ -11,7 +11,6 @@ from dns.resolver import dns
 
 start_time = time.time()
 
-
 RED="\u001b[31m"
 GREEN="\u001b[32m"
 YELLOW="\u001b[33m"
@@ -48,12 +47,21 @@ def main():
 
     if args.domain:
         print(f"{BLUE}[+] Enumerating sub......{RESET}")
+        sub_chaos = ("chaos -d {0} | httpx -silent".format(var_domain))
         sub = ("assetfinder -subs-only {0} | httpx -silent".format(var_domain))
- 
+
         content = []
+        result_chaos = subprocess.check_output(sub_chaos, shell=True, encoding='utf-8')
         result = subprocess.check_output(sub, shell=True, encoding='utf-8')
         for i in result.splitlines():
             content.append(i)
+        for i in result_chaos.splitlines():
+            content.append(i)
+
+        content = list(dict.fromkeys(content))
+        content.sort()
+
+        for i in content:
             print(i)
         
         content = [x.strip() for x in content]
@@ -62,9 +70,9 @@ def main():
         print()
         print(f"{BLUE}[+] Finding bucket......{RESET}")
         for i in content:
+            print(f"{RED}http://"+i+".s3.amazonaws.com"+f"{RESET}")
             response = requests.get("http://"+i+".s3.amazonaws.com")
-            print(response.text)
-            print(f"{RED}http://"+i+".s3.amazonaws.com"+f"{CYAN}")
+            print(response.text, f"{YELLOW}")
 
             request = dns.message.make_query(i, dns.rdatatype.ANY)
             request.flags |= dns.flags.AD
@@ -85,9 +93,9 @@ def main():
         content = [re.sub('https?://', '', x) for x in content]
 
         for i in content:
+            print(f"{RED}http://"+i+".s3.amazonaws.com"+f"{RESET}")
             response = requests.get("http://"+i+".s3.amazonaws.com")
-            print(response.text)
-            print(f"{RED}http://"+i+".s3.amazonaws.com"+f"{CYAN}")
+            print(response.text, f"{YELLOW}")
 
             request = dns.message.make_query(i, dns.rdatatype.ANY)
             request.flags |= dns.flags.AD
@@ -109,3 +117,4 @@ if __name__ == "__main__":
         print("--- %s seconds ---" % (time.time() - start_time))
         print(f"{RED}>>>>>> STOP.........................")
         exit(0)
+
