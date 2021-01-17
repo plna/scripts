@@ -56,7 +56,7 @@ setupDir(){
     echo -e "${GREEN}--==[ Setting things up ]==--${RESET}"
     echo -e "${RED}\n[+] Creating results directories...${RESET}"
     mkdir -p $SUB_PATH $IP_PATH $WAYBACK_PATH
-    mkdir -p $GATHER_PATH/scripts $GATHER_PATH/scriptsresponse $GATHER_PATH/endpoints $GATHER_PATH/responsebody $GATHER_PATH/headers
+    mkdir -p $GATHER_PATH/scriptsresponse $GATHER_PATH/endpoints $GATHER_PATH/body $GATHER_PATH/headers
 
     echo -e "${BLUE}[*] $TOOLS_PATH${RESET}"
     echo -e "${BLUE}[*] $WORDLIST_PATH${RESET}"
@@ -183,7 +183,7 @@ jsep() {
         do
                 NAME=$(echo $x | awk -F/ '{print $3}')
                 curl -s -X GET -H "X-Forwarded-For: evil.com" $x -I > "$GATHER_PATH/headers/$NAME" 
-                curl -s -X GET -H "X-Forwarded-For: evil.com" -L $x > "$GATHER_PATH/responsebody/$NAME"
+                curl -s -X GET -H "X-Forwarded-For: evil.com" -L $x > "$GATHER_PATH/body/$NAME"
         done
         echo -e "${GREEN}--==[ Checking evil.com ]==--${RESET}"
         grep -ine 'evil\.com' $GATHER_PATH/headers/* | tee $RESULTS_PATH/evil.txt
@@ -191,48 +191,44 @@ jsep() {
 
     jsfinder(){
         echo -e "${GREEN}--==[ Gathering JS Files ]==--${RESET}"       
-        for x in $(ls "$GATHER_PATH/responsebody")
+        for x in $(ls "$GATHER_PATH/body")
         do
             printf "${YELLOW}\n- $x ${RESET}"
-            END_POINTS=$(cat "$GATHER_PATH/responsebody/$x" | grep -Eoi "src=\"[^>]+></script>" | cut -d '"' -f 2)
+            END_POINTS=$(cat "$GATHER_PATH/body/$x" | grep -Eoi "src=\"[^>]+></script>" | cut -d '"' -f 2)
             for end_point in $END_POINTS
             do
                     len=$(echo $end_point | grep "http" | wc -c)
-                    mkdir "$GATHER_PATH/scriptsresponse/$x/" > /dev/null 2>&1
                     URL=$end_point
                     if [ $len == 0 ]
                     then
                             URL="https://$x$end_point"
                     fi
-                    file=$(basename $end_point)
-                    curl -s -X GET $URL -L  > "$GATHER_PATH/scriptsresponse/$x/$file"
-                    echo $URL >> "$GATHER_PATH/scripts/$x"
+                    echo $URL | anew $GATHER_PATH/scripts.txt
             done
+        done
+    }
+
+    js_response() {
+        for i in $( cat $GATHER_PATH/scripts.txt )
+        do
+            wget $i -P $GATHER_PATH/scriptsresponse/
         done
     }
 
     endpoints() {
         echo -e "${GREEN}\n--==[ Gathering Endpoints ]==--${RESET}"
-        for domain in $(ls $GATHER_PATH/scriptsresponse)
+        for i in $(ls $GATHER_PATH/scriptsresponse)
         do
-            #looping through files in each domain
-            mkdir $GATHER_PATH/endpoints/$domain
-            for file in $(ls $GATHER_PATH/scriptsresponse/$domain)
-            do
-                    cat $GATHER_PATH/scriptsresponse/$domain/$file | $TOOLS_PATH/relative-url-extractor/extract.rb >> $GATHER_PATH/endpoints/$domain/$file 
-            done
+            cat $GATHER_PATH/scriptsresponse/$i |\
+             $TOOLS_PATH/relative-url-extractor/extract.rb | anew $RESULTS_PATH/endpoints.txt
         done
-
     }
 response
 jsfinder
+js_response
 endpoints
 }
 
-finnal_Endpoint(){
-    echo -e "${GREEN}--==[ Combining Endpoints ]==--${RESET}"
-    cat $GATHER_PATH/endpoints/*/* | sort -u | anew  $RESULTS_PATH/endpoints.txt
-}
 
 fuzz_endpoint(){
     echo -e "${GREEN}\n--==[ Fuzzing by ffuf ]==--${RESET}"
@@ -282,7 +278,7 @@ setupDir
 
 enumSubs
 # visualRecon
-screenshot
+# screenshot
 enumIPs
 domainTakeOver
 cors_scan
@@ -290,7 +286,6 @@ cors_scan
 wayb
 
 jsep
-finnal_Endpoint
 open_redirect
 nuclei_test
 # fuzz_endpoint
