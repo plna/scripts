@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 # github.com/m4ll0k (@m4ll0k2) 
 # Bug Bounty Toolz - getSrc.py
 # getsrc.py - get script tag src (extract links)

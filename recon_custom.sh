@@ -12,6 +12,7 @@ IP_PATH="$RESULTS_PATH/ip"
 DIR_PATH="$RESULTS_PATH/dir"
 WAYBACK_PATH="$RESULTS_PATH/wayb"
 GATHER_PATH="$RESULTS_PATH/js_gather"
+NUCLEI="$RESULTS_PATH/nuclei"
 
 
 
@@ -55,7 +56,7 @@ runBanner(){
 setupDir(){
     echo -e "${GREEN}--==[ Setting things up ]==--${RESET}"
     echo -e "${RED}\n[+] Creating results directories...${RESET}"
-    mkdir -p $SUB_PATH $IP_PATH $WAYBACK_PATH
+    mkdir -p $SUB_PATH $IP_PATH $WAYBACK_PATH $NUCLEI
     mkdir -p $GATHER_PATH/scriptsresponse $GATHER_PATH/endpoints $GATHER_PATH/body $GATHER_PATH/headers
 
     echo -e "${BLUE}[*] $TOOLS_PATH${RESET}"
@@ -65,6 +66,7 @@ setupDir(){
     echo -e "${BLUE}[*] $IP_PATH${RESET}"
     echo -e "${BLUE}[*] $WAYBACK_PATH${RESET}"
     echo -e "${BLUE}[*] $GATHER_PATH${RESET}"
+    echo -e "${BLUE}[*] $NUCLEI${RESET}"
 }
 
 
@@ -118,13 +120,6 @@ enumIPs(){
     echo -e "${BLUE}[*] Check the list of IP addresses at $IP_PATH/final-ips.txt${RESET}"
 }
 
-domainTakeOver(){
-    echo -e "${GREEN}\n--==[ Checking for subdomain takeovers ]==--${RESET}"
-    runBanner "subjack"
-    subjack -a -ssl -t 50 -v -c ~/tools/subjack/fingerprints.json -w $SUB_PATH/final-subdomains.txt -o $SUB_PATH/final-takeover.tmp
-    cat $SUB_PATH/final-takeover.tmp | grep -v "Not Vulnerable" > $SUB_PATH/final-takeover.txt
-    echo -e "${BLUE}[*] Check subjack's result at $SUB_PATH/final-takeover.txt${RESET}"
-}
 
 portScan(){
     echo -e "${GREEN}\n--==[ Port-scanning targets ]==--${RESET}"
@@ -146,15 +141,15 @@ wayb() {
     echo -e "${GREEN}--==[ Starting WayBack URL ]==--${RESET}"
     for i in $(cat $RESULTS_PATH/alive.txt);do echo $i | waybackurls ;done | anew $WAYBACK_PATH/wb.txt
     runBanner "paramlist"
-    cat $WAYBACK_PATH/wb.txt  | sort -u | unfurl --unique keys | anew $WAYBACK_PATH/paramlist.txt
+    cat $WAYBACK_PATH/wb.txt  | sort -u | unfurl --unique keys | anew $WAYBACK_PATH/param_list.txt
     runBanner "js urls"
-    cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.js(\?|$)" | sort -u > $WAYBACK_PATH/jsurls.txt
+    cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.js(\?|$)" | sort -u > $WAYBACK_PATH/js_urls.txt
     runBanner "php urls"
-    cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.php(\?|$)" | sort -u > $WAYBACK_PATH/phpurls.txt
+    cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.php(\?|$)" | sort -u > $WAYBACK_PATH/php_urls.txt
     runBanner "asp url"
-    cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.aspx(\?|$)" | sort -u > $WAYBACK_PATH/aspxurls.txt
+    cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.aspx(\?|$)" | sort -u > $WAYBACK_PATH/aspx_urls.txt
     runBanner "jsp url"
-    cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.jsp(\?|$)" | sort -u > $WAYBACK_PATH/jspurls.txt
+    cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.jsp(\?|$)" | sort -u > $WAYBACK_PATH/jsp_urls.txt
     runBanner "robots"
     cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.txt(\?|$)" | sort -u > $WAYBACK_PATH/robots.txt
     runBanner "xss"
@@ -176,17 +171,16 @@ wayb() {
 }
 
 
-jsep() {
+js_find() {
     response(){
         echo -e "${GREEN}--==[ Gathering Response ]==--${RESET}"       
                 for x in $(cat $RESULTS_PATH/alive.txt)
         do
                 NAME=$(echo $x | awk -F/ '{print $3}')
-                curl -s -X GET -H "X-Forwarded-For: evil.com" $x -I > "$GATHER_PATH/headers/$NAME" 
                 curl -s -X GET -H "X-Forwarded-For: evil.com" -L $x > "$GATHER_PATH/body/$NAME"
         done
+        grep "evil.com" -iro >> $RESULTS_PATH/cached_poison.txt
         echo -e "${GREEN}--==[ Checking evil.com ]==--${RESET}"
-        grep -ine 'evil\.com' $GATHER_PATH/headers/* | tee $RESULTS_PATH/evil.txt
     }
 
     jsfinder(){
@@ -203,30 +197,12 @@ jsep() {
                     then
                             URL="https://$x$end_point"
                     fi
-                    echo $URL | anew $GATHER_PATH/scripts.txt
+                    echo $URL | anew $GATHER_PATH/url_js.txt
             done
-        done
-    }
-
-    js_response() {
-        for i in $( cat $GATHER_PATH/scripts.txt )
-        do
-            wget $i -P $GATHER_PATH/scriptsresponse/
-        done
-    }
-
-    endpoints() {
-        echo -e "${GREEN}\n--==[ Gathering Endpoints ]==--${RESET}"
-        for i in $(ls $GATHER_PATH/scriptsresponse)
-        do
-            cat $GATHER_PATH/scriptsresponse/$i |\
-             $TOOLS_PATH/relative-url-extractor/extract.rb | anew $RESULTS_PATH/endpoints.txt
         done
     }
 response
 jsfinder
-js_response
-endpoints
 }
 
 
@@ -241,19 +217,19 @@ fuzz_endpoint(){
 nuclei_test(){
     echo -e "${GREEN}--==[ Starting Nuclei ]==--${RESET}"
     runBanner "cves"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/cves/ -o $RESULTS_PATH/cves.txt  -stats -silent
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/cves/ -o $NUCLEI/cves.txt  -stats -silent
     runBanner "pannel"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/panels/ -o $RESULTS_PATH/panels.txt  -stats -silent
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/panels/ -o $NUCLEI/panels.txt  -stats -silent
     runBanner "security-misconfiguration"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/security-misconfiguration/ -o $RESULTS_PATH/security-misconfiguration.txt  -stats -silent
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/security-misconfiguration/ -o $NUCLEI/security-misconfiguration.txt  -stats -silent
     runBanner "technologies"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/technologies/ -o $RESULTS_PATH/technologies.txt  -stats -silent
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/technologies/ -o $NUCLEI/technologies.txt  -stats -silent
     runBanner "tokens"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/tokens/ -o $RESULTS_PATH/tokens.txt  -stats -silent
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/tokens/ -o $NUCLEI/tokens.txt  -stats -silent
     runBanner "vulnerabilities"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/vulnerabilities/ -o $RESULTS_PATH/vulnerabilities.txt  -stats -silent
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/vulnerabilities/ -o $NUCLEI/vulnerabilities.txt  -stats -silent
     runBanner "subdomain-takeover"
-    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/subdomain-takeover/ -o $RESULTS_PATH/subdomain-takeover.txt  -stats -silent
+    nuclei -l $RESULTS_PATH/alive.txt -t ~/nuclei-templates/subdomain-takeover/ -o $NUCLEI/subdomain-takeover.txt  -stats -silent
     echo -e "${BLUE}[*] Check the result at $RESULTS_PATH/ ${RESET}"
 }
 
@@ -280,12 +256,11 @@ enumSubs
 # visualRecon
 # screenshot
 enumIPs
-domainTakeOver
 cors_scan
 
 wayb
 
-jsep
+js_find
 open_redirect
 nuclei_test
 # fuzz_endpoint
