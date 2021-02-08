@@ -5,6 +5,7 @@ TARGET=$1
 
 WORKING_DIR=$(pwd -P)
 TOOLS_PATH=~/tools
+SCRIPTS_PATH=~/scripts
 WORDLIST_PATH=~/mylist
 RESULTS_PATH="$WORKING_DIR"
 SUB_PATH="$RESULTS_PATH/subdomain"
@@ -13,7 +14,7 @@ DIR_PATH="$RESULTS_PATH/dir"
 WAYBACK_PATH="$RESULTS_PATH/wayb"
 GATHER_PATH="$RESULTS_PATH/js_gather"
 NUCLEI="$RESULTS_PATH/nuclei"
-
+COLLECT="$RESULTS_PATH/collector"
 
 
 
@@ -56,8 +57,8 @@ runBanner(){
 setupDir(){
     echo -e "${GREEN}--==[ Setting things up ]==--${RESET}"
     echo -e "${RED}\n[+] Creating results directories...${RESET}"
-    mkdir -p $SUB_PATH $IP_PATH $WAYBACK_PATH $NUCLEI
-    mkdir -p $GATHER_PATH/scriptsresponse $GATHER_PATH/endpoints $GATHER_PATH/body $GATHER_PATH/headers
+    mkdir -p $SUB_PATH $IP_PATH $WAYBACK_PATH $NUCLEI $COLLECT
+    mkdir -p $GATHER_PATH/scriptsresponse $GATHER_PATH/body
 
     echo -e "${BLUE}[*] $TOOLS_PATH${RESET}"
     echo -e "${BLUE}[*] $WORDLIST_PATH${RESET}"
@@ -95,7 +96,7 @@ enumSubs(){
 }
 
 
-visualRecon(){
+aquatone(){
     echo -e "${GREEN}\n--==[ Taking screenshots ]==--${RESET}"
     runBanner "aquatone"
     cat $RESULTS_PATH/alive.txt | aquatone -chrome-path ~/chrome-linux/chrome -out $RESULTS_PATH/aquatone/
@@ -103,11 +104,11 @@ visualRecon(){
     
 }
 
-screenshot(){
+webscreenshot(){
     echo -e "${GREEN}\n--==[ Taking screenshots ]==--${RESET}"
     runBanner "webscreenshot"
-    $TOOLS_PATH/webscreenshot/webscreenshot.py -i $RESULTS_PATH/alive.txt -o $RESULTS_PATH/screenshots -t 2000
-    echo -e "${BLUE}[*] Check the result at $RESULTS_PATH/sreenshot/aquatone_report.html${RESET}"
+    python3 $TOOLS_PATH/webscreenshot/webscreenshot.py -i $RESULTS_PATH/alive.txt -o $RESULTS_PATH/screenshots -t 9000
+    echo -e "${BLUE}[*] Check the result at $RESULTS_PATH/sreenshot${RESET}"
     
 }
 
@@ -152,22 +153,22 @@ wayb() {
     cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.jsp(\?|$)" | sort -u > $WAYBACK_PATH/jsp_urls.txt
     runBanner "robots"
     cat $WAYBACK_PATH/wb.txt  | grep -P "\w+\.txt(\?|$)" | sort -u > $WAYBACK_PATH/robots.txt
-    runBanner "xss"
-    cat $WAYBACK_PATH/wb.txt  | gf xss | sort -u | anew $WAYBACK_PATH/xss.txt
-    runBanner "sqli"
-    cat $WAYBACK_PATH/wb.txt  | gf sqli | sort -u | anew $WAYBACK_PATH/sqli.txt
-    runBanner "redirect"
-    cat $WAYBACK_PATH/wb.txt  | gf redirect | sort -u | anew $WAYBACK_PATH/redirect.txt
-    runBanner "rce"
-    cat $WAYBACK_PATH/wb.txt  | gf rce | sort -u | anew $WAYBACK_PATH/rce.txt
-    runBanner "ssrf"
-    cat $WAYBACK_PATH/wb.txt  | gf ssrf | sort -u | anew $WAYBACK_PATH/ssrf.txt
     runBanner "s3-buckets"
     cat $WAYBACK_PATH/wb.txt  | gf s3-buckets | sort -u | anew $WAYBACK_PATH/s3-buckets.txt
+    runBanner "rce"
+    cat $WAYBACK_PATH/wb.txt  | gf rce | sort -u | anew $WAYBACK_PATH/rce.txt
+    runBanner "sqli"
+    cat $WAYBACK_PATH/wb.txt  | gf sqli | sort -u | anew $WAYBACK_PATH/sqli.txt
+    # runBanner "xss"
+    # cat $WAYBACK_PATH/wb.txt  | gf xss | sort -u | anew $WAYBACK_PATH/xss.txt
+    # runBanner "redirect"
+    # cat $WAYBACK_PATH/wb.txt  | gf redirect | sort -u | anew $WAYBACK_PATH/redirect.txt
+    # runBanner "ssrf"
+    # cat $WAYBACK_PATH/wb.txt  | gf ssrf | sort -u | anew $WAYBACK_PATH/ssrf.txt
     # runBanner "ssti"
     # cat $WAYBACK_PATH/wb.txt  | gf ssti | sort -u | anew $WAYBACK_PATH/ssti.txt
-    runBanner "lfi"
-    cat $WAYBACK_PATH/wb.txt  | gf lfi | sort -u | anew $WAYBACK_PATH/lfi.txt   
+    # runBanner "lfi"
+    # cat $WAYBACK_PATH/wb.txt  | gf lfi | sort -u | anew $WAYBACK_PATH/lfi.txt   
 }
 
 
@@ -201,10 +202,21 @@ js_find() {
             done
         done
     }
-response
-jsfinder
+    response
+    jsfinder
 }
 
+js_download() {
+    echo -e "${GREEN}--==[ Downloading js file ]==--${RESET}"
+    $SCRIPTS_PATH/js_download.py -f $GATHER_PATH/url_js.txt -o $GATHER_PATH/scriptsresponse
+    echo -e "${BLUE}[*] Check the result at $GATHER_PATH/scriptsresponse${RESET}"
+}
+
+secret_find() {
+    cat $GATHER_PATH/url_js.txt |\
+     xargs -I @ sh -c "$TOOLS_PATH/secretfinder/SecretFinder.py -i @ -o cli" |\
+      tee $GATHER_PATH/secret.txt
+}
 
 fuzz_endpoint(){
     echo -e "${GREEN}\n--==[ Fuzzing by ffuf ]==--${RESET}"
@@ -233,6 +245,9 @@ nuclei_test(){
     echo -e "${BLUE}[*] Check the result at $RESULTS_PATH/ ${RESET}"
 }
 
+collector() {
+    for i in $( cat $GATHER_PATH/url_js.txt  ); do $TOOLS_PATH/LinkFinder/linkfinder.py -i $i -o cli; done | $SCRIPT/collector.py $COLLECT
+}
 
 cors_scan(){
     echo -e "${GREEN}--==[ CORS.... ]==--${RESET}"
@@ -254,13 +269,17 @@ setupDir
 
 enumSubs
 # visualRecon
-# screenshot
+webscreenshot
 enumIPs
 cors_scan
 
 wayb
 
 js_find
+js_download
+secret_find
+collector
+
 open_redirect
 nuclei_test
 # fuzz_endpoint

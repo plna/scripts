@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 # linkfinder output collector
 
 # example:

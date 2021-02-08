@@ -17,6 +17,14 @@ try:
 except ImportError:
     from urllib2 import Request, urlopen
 
+try:
+    from StringIO import StringIO
+    readBytesCustom = StringIO
+except ImportError:
+    from io import BytesIO
+    readBytesCustom = BytesIO
+
+
 start_time = time.time()
 
 RED="\u001b[31m"
@@ -82,8 +90,7 @@ def main():
                     with open (file_name, 'w') as f:
                         f.write(send_request(url))
             except Exception as ex:
-                print(f"{RED}")
-                print(ex)
+                print(f"{RED}",ex)
                 print(f"{RESET}")
             finally:
                 continue
